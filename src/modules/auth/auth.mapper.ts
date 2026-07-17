@@ -1,5 +1,6 @@
 import { UserSession } from '@thallesp/nestjs-better-auth';
 import { AuthInstance } from './auth.factory';
+import { RoleTypeEnum } from 'src/core/database/drizzle/drizzle.types';
 
 export function mapUserResponse(
   session: UserSession<AuthInstance>,
@@ -10,6 +11,7 @@ export function mapUserResponse(
     name: session.user.name,
     email: session.user.email,
     image: session.user.image,
+    role: session.user.role as RoleTypeEnum,
     emailVerified: session.user.emailVerified,
     createdAt: session.user.createdAt,
     updatedAt: session.user.updatedAt,

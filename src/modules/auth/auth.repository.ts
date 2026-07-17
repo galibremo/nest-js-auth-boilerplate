@@ -27,6 +27,7 @@ export class AuthRepository {
         ipAddress: schema.sessions.ipAddress,
         userAgent: schema.sessions.userAgent,
         userId: schema.sessions.userId,
+        userRole: schema.users.role,
         createdAt: schema.sessions.createdAt,
         updatedAt: schema.sessions.updatedAt,
       })

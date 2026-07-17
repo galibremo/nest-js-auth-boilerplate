@@ -13,6 +13,7 @@ declare global {
     name: string;
     email: string;
     image: string | null;
+    role: 'USER' | 'SUPER_ADMIN';
     emailVerified: boolean;
     createdAt: Date;
     updatedAt: Date;
