@@ -9,6 +9,7 @@ export function mapUserManagementResponse(
     email: row.email,
     image: row.image,
     emailVerified: row.emailVerified,
+    role: row.role,
     activeSessionCount: Number(row.activeSessionCount ?? 0),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,

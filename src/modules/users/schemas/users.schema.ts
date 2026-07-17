@@ -16,6 +16,9 @@ import {
   validateString,
   validateUUID,
 } from '../../../core/validators/common.schema';
+import { roleTypeEnum } from 'src/core/database/schema/drizzle/enum.drizzle.schema';
+
+export const userRoleValues = roleTypeEnum.enumValues;
 
 const USER_SORTABLE_FIELDS: readonly SortableField[] = [
   { name: 'name', queryName: 'name' },
@@ -66,6 +69,12 @@ const optionalNullablePassword = z.preprocess((value) => {
   return trimmed || null;
 }, validatePassword.nullable().optional());
 
+export const UpdateUserRoleSchema = z
+  .object({
+    role: validateEnum('Role', userRoleValues),
+  })
+  .strict();
+
 export const CreateUserSchema = z
   .object({
     name: optionalNullableString('Name'),
@@ -92,6 +101,7 @@ export const UserManagementResponseSchema = z.object({
   email: validateEmail,
   image: validateString('Image').nullable(),
   emailVerified: validateBoolean('Email Verified'),
+  role: validateEnum('Role', ['USER', 'SUPER_ADMIN']),
   activeSessionCount: validateNumber('Active Session Count', {
     min: 0,
     int: true,
@@ -131,6 +141,7 @@ export const RevokeUserSessionsApiResponseSchema = createApiResponseSchema(
 export type UsersListQueryDto = z.infer<typeof UsersListQuerySchema>;
 export type CreateUserDto = z.infer<typeof CreateUserSchema>;
 export type UpdateUserDto = z.infer<typeof UpdateUserSchema>;
+export type UpdateUserRoleDto = z.infer<typeof UpdateUserRoleSchema>;
 export type UserManagementResponse = z.infer<
   typeof UserManagementResponseSchema
 >;

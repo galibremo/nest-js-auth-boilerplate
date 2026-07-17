@@ -8,5 +8,21 @@ export class UsersPolicy {
         'You cannot manage your own user account here.',
       );
     }
+
+    if (actor.role === 'SUPER_ADMIN') return;
+
+    throw forbiddenError(
+      'forbidden',
+      "You don't have permission to manage this user.",
+    );
+  }
+
+  static assertCanAssignRole(actor: CurrentUser): void {
+    if (actor.role === 'SUPER_ADMIN') return;
+
+    throw forbiddenError(
+      'forbidden',
+      "You don't have permission to assign this role.",
+    );
   }
 }

@@ -13,7 +13,12 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { AuthGuard } from '@thallesp/nestjs-better-auth';
+import {
+  AuthGuard,
+  Roles,
+  Session,
+  type UserSession,
+} from '@thallesp/nestjs-better-auth';
 import type { Request as ExpressRequest } from 'express';
 
 import { createApiResponse } from '../../shared/helpers/api-response.helper';
@@ -21,6 +26,7 @@ import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import type {
   DeleteUserApiResponse,
   RevokeUserSessionsApiResponse,
+  UpdateUserRoleDto,
   UserListApiResponse,
   UserManagementApiResponse,
   UserManagementResponse,
@@ -31,6 +37,7 @@ import {
   DeleteUserApiResponseSchema,
   RevokeUserSessionsApiResponseSchema,
   type UpdateUserDto,
+  UpdateUserRoleSchema,
   UpdateUserSchema,
   UserListApiResponseSchema,
   UserManagementApiResponseSchema,
@@ -38,8 +45,11 @@ import {
   UsersListQuerySchema,
 } from './schemas/users.schema';
 import { UsersService } from './users.service';
+import { AuthInstance } from '../auth/auth.factory';
+import { mapUserResponse } from '../auth/auth.mapper';
 
 @UseGuards(AuthGuard)
+@Roles(['SUPER_ADMIN'])
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
@@ -64,10 +74,14 @@ export class UsersController {
 
   @Get(':id')
   async getUser(
+    @Session() session: UserSession<AuthInstance>,
     @Req() request: ExpressRequest,
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<UserManagementApiResponse> {
-    const user = await this.usersService.getUserById(id);
+    const user = await this.usersService.getUserById(
+      mapUserResponse(session),
+      id,
+    );
 
     return this.userResponse(
       HttpStatus.OK,
@@ -79,10 +93,14 @@ export class UsersController {
 
   @Post()
   async createUser(
+    @Session() session: UserSession<AuthInstance>,
     @Req() request: ExpressRequest,
     @Body(new ZodValidationPipe(CreateUserSchema)) body: CreateUserDto,
   ): Promise<UserManagementApiResponse> {
-    const user = await this.usersService.createUser(body);
+    const user = await this.usersService.createUser(
+      mapUserResponse(session),
+      body,
+    );
 
     return this.userResponse(
       HttpStatus.CREATED,
@@ -94,11 +112,16 @@ export class UsersController {
 
   @Patch(':id')
   async updateUser(
+    @Session() session: UserSession<AuthInstance>,
     @Param('id', ParseUUIDPipe) id: string,
     @Req() request: ExpressRequest,
     @Body(new ZodValidationPipe(UpdateUserSchema)) body: UpdateUserDto,
   ): Promise<UserManagementApiResponse> {
-    const user = await this.usersService.updateUser(id, body);
+    const user = await this.usersService.updateUser(
+      mapUserResponse(session),
+      id,
+      body,
+    );
 
     return this.userResponse(
       HttpStatus.OK,
@@ -108,12 +131,37 @@ export class UsersController {
     );
   }
 
+  @Patch(':id/role')
+  async updateUserRole(
+    @Session() session: UserSession<AuthInstance>,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() request: ExpressRequest,
+    @Body(new ZodValidationPipe(UpdateUserRoleSchema)) body: UpdateUserRoleDto,
+  ): Promise<UserManagementApiResponse> {
+    const user = await this.usersService.updateUserRole(
+      mapUserResponse(session),
+      id,
+      body,
+    );
+
+    return this.userResponse(
+      HttpStatus.OK,
+      'User role updated successfully',
+      user,
+      request.url,
+    );
+  }
+
   @Delete(':id')
   async deleteUser(
+    @Session() session: UserSession<AuthInstance>,
     @Param('id', ParseUUIDPipe) id: string,
     @Req() request: ExpressRequest,
   ): Promise<DeleteUserApiResponse> {
-    const result = await this.usersService.deleteUser(id);
+    const result = await this.usersService.deleteUser(
+      mapUserResponse(session),
+      id,
+    );
 
     return DeleteUserApiResponseSchema.parse(
       createApiResponse({
@@ -128,10 +176,14 @@ export class UsersController {
   @Post(':id/sessions/revoke')
   @HttpCode(HttpStatus.OK)
   async revokeUserSessions(
+    @Session() session: UserSession<AuthInstance>,
     @Param('id', ParseUUIDPipe) id: string,
     @Req() request: ExpressRequest,
   ): Promise<RevokeUserSessionsApiResponse> {
-    const result = await this.usersService.revokeUserSessions(id);
+    const result = await this.usersService.revokeUserSessions(
+      mapUserResponse(session),
+      id,
+    );
 
     return RevokeUserSessionsApiResponseSchema.parse(
       createApiResponse({

@@ -153,6 +153,18 @@ export class UsersRepository {
       .then((rows) => rows[0]);
   }
 
+  async updateUserRole(
+    userId: number,
+    role: UserSchemaType['role'],
+  ): Promise<UserSchemaType | undefined> {
+    return this.db
+      .update(schema.users)
+      .set({ role })
+      .where(eq(schema.users.id, userId))
+      .returning()
+      .then((rows) => rows[0]);
+  }
+
   async deleteUser(userId: number): Promise<UserSchemaType | undefined> {
     return this.db
       .delete(schema.users)
@@ -225,6 +237,7 @@ export class UsersRepository {
       email: schema.users.email,
       image: schema.users.image,
       emailVerified: schema.users.emailVerified,
+      role: schema.users.role,
       activeSessionCount,
       createdAt: schema.users.createdAt,
       updatedAt: schema.users.updatedAt,

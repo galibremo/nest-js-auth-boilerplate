@@ -9,8 +9,8 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
-
 import { timestamps } from '../../helpers';
+import { roleTypeEnum } from './enum.drizzle.schema';
 
 export const users = pgTable(
   'users',
@@ -21,6 +21,7 @@ export const users = pgTable(
     email: text('email').notNull().unique(),
     emailVerified: boolean('email_verified').default(false).notNull(),
     image: text('image'),
+    role: roleTypeEnum('role').default('USER').notNull(),
     ...timestamps,
   },
   (table) => [index('users_email_verified_idx').on(table.emailVerified)],

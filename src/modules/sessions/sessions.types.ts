@@ -1,3 +1,5 @@
+import { RoleTypeEnum } from 'src/core/database/drizzle/drizzle.types';
+
 export type SessionStatus = 'active' | 'expired';
 export type SessionSortKey =
   'ipAddress' | 'userAgent' | 'createdAt' | 'expiresAt';
@@ -10,6 +12,7 @@ export interface SessionRow {
   ipAddress: string | null;
   userAgent: string | null;
   userId: number;
+  userRole: RoleTypeEnum;
   createdAt: Date;
   updatedAt: Date;
 }

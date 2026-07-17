@@ -11,12 +11,14 @@ import type {
   DeleteUserResponse,
   RevokeUserSessionsResponse,
   UpdateUserDto,
+  UpdateUserRoleDto,
   UserListResponse,
   UserManagementResponse,
   UsersListQueryDto,
 } from './schemas/users.schema';
 import { mapUserManagementResponse } from './users.mapper';
 import { UsersRepository } from './users.repository';
+import { UsersPolicy } from './users.policy';
 
 @Injectable()
 export class UsersService {
@@ -33,13 +35,20 @@ export class UsersService {
     };
   }
 
-  async getUserById(publicId: string): Promise<UserManagementResponse> {
+  async getUserById(
+    currentUser: CurrentUser,
+    publicId: string,
+  ): Promise<UserManagementResponse> {
     const targetUser = await this.getTargetUser(publicId);
-
+    UsersPolicy.assertCanManageUser(currentUser, targetUser);
     return this.getManagementResponse(targetUser.id);
   }
 
-  async createUser(data: CreateUserDto): Promise<UserManagementResponse> {
+  async createUser(
+    currentUser: CurrentUser,
+    data: CreateUserDto,
+  ): Promise<UserManagementResponse> {
+    UsersPolicy.assertCanAssignRole(currentUser);
     await this.assertEmailAvailable(data.email);
 
     const passwordHash = data.password
@@ -51,6 +60,7 @@ export class UsersService {
         name: this.getPersistedName(data.name, data.email),
         email: data.email,
         emailVerified: data.emailVerified ?? false,
+        role: 'USER',
       });
 
       if (!createdUser) throw notFoundError('user_not_found', 'User not found');
@@ -70,10 +80,13 @@ export class UsersService {
   }
 
   async updateUser(
+    currentUser: CurrentUser,
     publicId: string,
     data: UpdateUserDto,
   ): Promise<UserManagementResponse> {
     const targetUser = await this.getTargetUser(publicId);
+
+    UsersPolicy.assertCanManageUser(currentUser, targetUser);
 
     if (data.email && data.email !== targetUser.email) {
       await this.assertEmailAvailable(data.email, targetUser.id);
@@ -97,9 +110,32 @@ export class UsersService {
     }
   }
 
-  async deleteUser(publicId: string): Promise<DeleteUserResponse> {
+  async updateUserRole(
+    currentUser: CurrentUser,
+    publicId: string,
+    data: UpdateUserRoleDto,
+  ): Promise<UserManagementResponse> {
     const targetUser = await this.getTargetUser(publicId);
 
+    UsersPolicy.assertCanManageUser(currentUser, targetUser);
+    UsersPolicy.assertCanAssignRole(currentUser);
+
+    if (targetUser.role !== data.role) {
+      await this.usersRepository.updateUserRole(targetUser.id, data.role);
+    }
+
+    const user = await this.getManagementResponse(targetUser.id);
+
+    return user;
+  }
+
+  async deleteUser(
+    currentUser: CurrentUser,
+    publicId: string,
+  ): Promise<DeleteUserResponse> {
+    const targetUser = await this.getTargetUser(publicId);
+
+    UsersPolicy.assertCanManageUser(currentUser, targetUser);
     const deletedUser = await this.usersRepository.deleteUser(targetUser.id);
     if (!deletedUser) throw notFoundError('user_not_found', 'User not found');
 
@@ -107,10 +143,11 @@ export class UsersService {
   }
 
   async revokeUserSessions(
+    currentUser: CurrentUser,
     publicId: string,
   ): Promise<RevokeUserSessionsResponse> {
     const targetUser = await this.getTargetUser(publicId);
-
+    UsersPolicy.assertCanManageUser(currentUser, targetUser);
     const revokedCount = await this.usersRepository.revokeUserSessions(
       targetUser.id,
     );
