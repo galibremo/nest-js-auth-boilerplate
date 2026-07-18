@@ -14,6 +14,7 @@ import { AuthService } from './auth.service';
 
 @Module({
   imports: [
+    DatabaseModule,
     BetterAuthModule.forRootAsync({
       imports: [ConfigModule, DatabaseModule],
       inject: [DRIZZLE_DATABASE_CONNECTION, ConfigService],

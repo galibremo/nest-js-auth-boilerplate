@@ -1,8 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { AuthService as BetterAuthService } from '@thallesp/nestjs-better-auth';
+import { eq } from 'drizzle-orm';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { fromNodeHeaders } from 'better-auth/node';
 import type { IncomingHttpHeaders } from 'node:http';
 
+import schema from '../../core/database/drizzle/drizzle.schema';
+import { DRIZZLE_DATABASE_CONNECTION } from '../../core/database/drizzle/drizzle.tokens';
+import { conflictError } from '../../core/errors/domain-error';
 import { throwBetterAuthError } from './auth.error';
 import { AuthInstance } from './auth.factory';
 import type {
@@ -24,6 +29,8 @@ import type { RegisterInput } from './schemas/register.schema';
 export class AuthService {
   constructor(
     private readonly betterAuth: BetterAuthService<AuthInstance>,
+    @Inject(DRIZZLE_DATABASE_CONNECTION)
+    private readonly db: NodePgDatabase<typeof schema>,
   ) {}
 
   async logout(requestHeaders: IncomingHttpHeaders): Promise<LogoutData> {
@@ -69,6 +76,17 @@ export class AuthService {
     input: RegisterInput,
     requestHeaders: IncomingHttpHeaders,
   ): Promise<LoginUserData> {
+    const existingUser = await this.db.query.users.findFirst({
+      where: eq(schema.users.email, input.email),
+    });
+
+    if (existingUser) {
+      throw conflictError(
+        'email_already_exists',
+        'A user with this email already exists.',
+      );
+    }
+
     try {
       const { response, headers } = await this.betterAuth.api.signUpEmail({
         body: {
