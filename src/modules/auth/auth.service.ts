@@ -89,6 +89,31 @@ export class AuthService {
     }
   }
 
+  async googleSignIn(
+    idToken: string,
+    requestHeaders: IncomingHttpHeaders,
+  ): Promise<LoginUserData> {
+    try {
+      const { response, headers } = await this.betterAuth.api.signInSocial({
+        body: {
+          provider: 'google',
+          idToken: {
+            token: idToken,
+          },
+        },
+        headers: fromNodeHeaders(requestHeaders),
+        returnHeaders: true,
+      });
+
+      const cookies = headers.getSetCookie();
+      const { user } = BetterAuthLoginResponseSchema.parse(response);
+
+      return { user, cookies };
+    } catch (error: unknown) {
+      throwBetterAuthError(error);
+    }
+  }
+
   async setUserPassword(
     input: SetPasswordInput,
     requestHeaders: IncomingHttpHeaders,

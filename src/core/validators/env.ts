@@ -31,7 +31,12 @@ const CoreEnvSchema = z.object({
   BETTER_AUTH_URL: validateUrl('BETTER_AUTH_URL'),
 });
 
-const schemas = [CoreEnvSchema, CookieEnvSchema, AllSecretsEnvSchema];
+const GoogleEnvSchema = z.object({
+  GOOGLE_CLIENT_ID: validateString('GOOGLE_CLIENT_ID').optional(),
+  GOOGLE_CLIENT_SECRET: validateString('GOOGLE_CLIENT_SECRET').optional(),
+});
+
+const schemas = [CoreEnvSchema, CookieEnvSchema, AllSecretsEnvSchema, GoogleEnvSchema];
 
 const seenKeys = new Set<string>();
 for (const schema of schemas) {
@@ -47,6 +52,24 @@ export const EnvSchema = z.object({
   ...CoreEnvSchema.shape,
   ...CookieEnvSchema.shape,
   ...AllSecretsEnvSchema.shape,
+  ...GoogleEnvSchema.shape,
+}).superRefine((data, ctx) => {
+  if (data.GOOGLE_CLIENT_ID || data.GOOGLE_CLIENT_SECRET) {
+    if (!data.GOOGLE_CLIENT_ID) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'GOOGLE_CLIENT_ID is required when GOOGLE_CLIENT_SECRET is provided',
+        path: ['GOOGLE_CLIENT_ID'],
+      });
+    }
+    if (!data.GOOGLE_CLIENT_SECRET) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'GOOGLE_CLIENT_SECRET is required when GOOGLE_CLIENT_ID is provided',
+        path: ['GOOGLE_CLIENT_SECRET'],
+      });
+    }
+  }
 });
 
 export type EnvType = z.infer<typeof EnvSchema>;

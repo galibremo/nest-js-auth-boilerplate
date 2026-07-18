@@ -21,6 +21,8 @@ import { createApiResponse } from '../../shared/helpers/api-response.helper';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import { AuthInstance } from './auth.factory';
 import { AuthService } from './auth.service';
+import type { GoogleSignInInput } from './schemas/google.schema';
+import { GoogleSignInInputSchema } from './schemas/google.schema';
 import type { LoginInput, LoginResponse } from './schemas/login.schema';
 import { LoginInputSchema, LoginResponseSchema } from './schemas/login.schema';
 import type { LogoutResponse } from './schemas/logout.schema';
@@ -87,6 +89,30 @@ export class AuthController {
       createApiResponse({
         statusCode: HttpStatus.OK,
         message: 'Login successful',
+        data: response.user,
+        path: req.url,
+      }),
+    );
+  }
+
+  @Post('google')
+  @HttpCode(HttpStatus.OK)
+  @UsePipes(new ZodValidationPipe(GoogleSignInInputSchema))
+  async googleSignIn(
+    @Body() input: GoogleSignInInput,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<LoginResponse> {
+    const response = await this.authService.googleSignIn(
+      input.idToken,
+      req.headers,
+    );
+    this.appendCookies(res, response.cookies);
+
+    return LoginResponseSchema.parse(
+      createApiResponse({
+        statusCode: HttpStatus.OK,
+        message: 'Google login successful',
         data: response.user,
         path: req.url,
       }),

@@ -36,6 +36,12 @@ export function createAuth(
       enabled: true,
       requireEmailVerification: false,
     },
+    socialProviders: {
+      google: {
+        clientId: configService.get('GOOGLE_CLIENT_ID', { infer: true }) || '',
+        clientSecret: configService.get('GOOGLE_CLIENT_SECRET', { infer: true }) || '',
+      },
+    },
     user: {
       additionalFields: {
         publicId: {
