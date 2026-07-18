@@ -1,7 +1,11 @@
 import type { InferSelectModel } from 'drizzle-orm';
 
 import { sessions, users } from '../schema/drizzle/auth.drizzle.schema';
-import { roleTypeEnum } from '../schema/drizzle/enum.drizzle.schema';
+import {
+  roleTypeEnum,
+  workspaceMemberStatusEnum,
+  workspaceRoleEnum,
+} from '../schema/drizzle/enum.drizzle.schema';
 import { workspaces } from '../schema/drizzle/workspace.drizzle.schema';
 
 /**
@@ -14,4 +18,8 @@ export type WorkspaceSchemaType = InferSelectModel<typeof workspaces>;
 /**
  * Enum Schema Types
  */
+
 export type RoleTypeEnum = (typeof roleTypeEnum.enumValues)[number];
+export type WorkspaceRoleEnum = (typeof workspaceRoleEnum.enumValues)[number];
+export type WorkspaceMemberStatusEnum =
+  (typeof workspaceMemberStatusEnum.enumValues)[number];
