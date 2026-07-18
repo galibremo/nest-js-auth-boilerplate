@@ -75,7 +75,7 @@ export const AppHelpers = {
 		configService: ConfigService<EnvType, true>,
 		maxAge: number = sessionTimeout,
 	): CookieOptions {
-		const cookieConfig = this.sameSiteCookieConfig(configService);
+		const cookieConfig = AppHelpers.sameSiteCookieConfig(configService);
 
 		return {
 			httpOnly: true,
@@ -88,8 +88,10 @@ export const AppHelpers = {
 		};
 	},
 
-	accessTokenClearCookieConfig(configService: ConfigService<EnvType, true>): CookieOptions {
-		const cookieConfig = this.sameSiteCookieConfig(configService);
+	accessTokenClearCookieConfig(
+		configService: ConfigService<EnvType, true>,
+	): CookieOptions {
+		const cookieConfig = AppHelpers.sameSiteCookieConfig(configService);
 
 		return {
 			httpOnly: true,
@@ -100,4 +102,4 @@ export const AppHelpers = {
 			}),
 		};
 	},
-} as const;
+};
