@@ -61,7 +61,10 @@ export class WorkspaceRepository {
     });
   }
 
-  async listWorkspaces(query: WorkspaceListQueryDto): Promise<{
+  async listWorkspaces(
+    query: WorkspaceListQueryDto,
+    ownerId?: number,
+  ): Promise<{
     rows: WorkspaceManagementRow[];
     total: number;
     page: number;
@@ -71,7 +74,7 @@ export class WorkspaceRepository {
     const pageSize = query.pageSize ?? 10;
     const offset = (page - 1) * pageSize;
     const memberCountSql = this.memberCountSql();
-    const whereClause = this.getListWorkspacesWhere(query);
+    const whereClause = this.getListWorkspacesWhere(query, ownerId);
     const orderBy = this.getWorkspacesOrderBy(
       query.sort,
       query.dir,
@@ -164,6 +167,18 @@ export class WorkspaceRepository {
       .then((rows) => rows[0]);
   }
 
+  async restoreWorkspace(
+    workspaceId: number,
+    restoredName: string,
+  ): Promise<WorkspaceSchemaType | undefined> {
+    return this.db
+      .update(schema.workspaces)
+      .set({ deletedAt: null, name: restoredName })
+      .where(eq(schema.workspaces.id, workspaceId))
+      .returning()
+      .then((rows) => rows[0]);
+  }
+
   private memberCountSql(): SQL<number> {
     return sql<number>`(
       SELECT COALESCE(COUNT(DISTINCT ${schema.workspaceMembers.userId}), 0)::int
@@ -174,6 +189,7 @@ export class WorkspaceRepository {
 
   private getListWorkspacesWhere(
     query: WorkspaceListQueryDto,
+    ownerId?: number,
   ): SQL<unknown> | undefined {
     const fromDate = query.fromDate ? new Date(query.fromDate) : undefined;
     const toDate = query.toDate ? new Date(query.toDate) : undefined;
@@ -187,6 +203,7 @@ export class WorkspaceRepository {
 
     const conditions = [
       isNull(schema.workspaces.deletedAt),
+      ownerId ? eq(schema.workspaces.ownerId, ownerId) : undefined,
       searchExists,
       query.status?.length
         ? inArray(schema.workspaces.status, query.status)
