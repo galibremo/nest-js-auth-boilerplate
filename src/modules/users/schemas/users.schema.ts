@@ -81,6 +81,7 @@ export const CreateUserSchema = z
     email: validateEmail.transform((value) => value.toLowerCase()),
     password: optionalNullablePassword,
     emailVerified: validateBoolean('Email Verified').optional(),
+    role: validateEnum('Role', userRoleValues),
   })
   .strict();
 
