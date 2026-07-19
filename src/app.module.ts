@@ -8,6 +8,7 @@ import { APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { ZodValidationPipe } from './shared/pipes/zod-validation.pipe';
 import { AuthModule } from './modules/auth/auth.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
+import { UsersModule } from './modules/users/users.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { SessionsModule } from './modules/sessions/sessions.module';
     CryptoModule,
     AuthModule,
     SessionsModule,
+    UsersModule,
   ],
   controllers: [],
   providers: [
