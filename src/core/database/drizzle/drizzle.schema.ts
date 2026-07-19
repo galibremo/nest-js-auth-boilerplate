@@ -3,13 +3,11 @@
 import * as AuthDrizzleSchema from '../schema/drizzle/auth.drizzle.schema';
 import * as EnumDrizzleSchema from '../schema/drizzle/enum.drizzle.schema';
 import * as RelationDrizzleSchema from '../schema/drizzle/relation.drizzle.schema';
-import * as WorkspaceDrizzleSchema from '../schema/drizzle/workspace.drizzle.schema';
 
 const schema = {
 	...AuthDrizzleSchema,
 	...EnumDrizzleSchema,
 	...RelationDrizzleSchema,
-	...WorkspaceDrizzleSchema,
 };
 
 export default schema;

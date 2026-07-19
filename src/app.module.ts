@@ -8,7 +8,6 @@ import { APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { ZodValidationPipe } from './shared/pipes/zod-validation.pipe';
 import { AuthModule } from './modules/auth/auth.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
-import { WorkspaceModule } from './modules/workspace/workspace.module';
 
 @Module({
   imports: [
@@ -32,7 +31,6 @@ import { WorkspaceModule } from './modules/workspace/workspace.module';
     CryptoModule,
     AuthModule,
     SessionsModule,
-    WorkspaceModule,
   ],
   controllers: [],
   providers: [
