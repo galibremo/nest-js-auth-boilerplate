@@ -8,6 +8,7 @@ import {
   eq,
   gte,
   ilike,
+  inArray,
   lte,
   or,
   sql,
@@ -75,6 +76,7 @@ export class UsersRepository {
           schema.users.email,
           schema.users.image,
           schema.users.emailVerified,
+          schema.users.role,
           schema.users.createdAt,
           schema.users.updatedAt,
         )
@@ -135,6 +137,7 @@ export class UsersRepository {
         schema.users.email,
         schema.users.image,
         schema.users.emailVerified,
+        schema.users.role,
         schema.users.createdAt,
         schema.users.updatedAt,
       )
@@ -202,6 +205,7 @@ export class UsersRepository {
       typeof query.emailVerified === 'boolean'
         ? eq(schema.users.emailVerified, query.emailVerified)
         : undefined,
+      query.role?.length ? inArray(schema.users.role, query.role) : undefined,
       fromDate ? gte(schema.users.createdAt, fromDate) : undefined,
       toDate ? lte(schema.users.createdAt, toDate) : undefined,
     ].filter(Boolean) as SQL<unknown>[];

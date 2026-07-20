@@ -24,6 +24,7 @@ const USER_SORTABLE_FIELDS: readonly SortableField[] = [
   { name: 'name', queryName: 'name' },
   { name: 'email', queryName: 'email' },
   { name: 'emailVerified', queryName: 'emailVerified' },
+  { name: 'role', queryName: 'role' },
   { name: 'activeSessionCount', queryName: 'activeSessionCount' },
   { name: 'createdAt', queryName: 'createdAt' },
   { name: 'updatedAt', queryName: 'updatedAt' },
@@ -31,6 +32,23 @@ const USER_SORTABLE_FIELDS: readonly SortableField[] = [
 
 const firstQueryValue = (value: unknown): unknown =>
   Array.isArray(value) ? value[0] : value;
+
+const RoleQuerySchema = validateString('Role')
+  .transform((value) =>
+    value
+      .split(',')
+      .map((role) => role.trim())
+      .filter(Boolean),
+  )
+  .refine(
+    (values) =>
+      values.every((role) =>
+        userRoleValues.includes(role as (typeof userRoleValues)[number]),
+      ),
+    { message: 'Role is invalid' },
+  )
+  .transform((values) => values as (typeof userRoleValues)[number][])
+  .optional();
 
 const booleanQuerySchema = (name: string) =>
   z
@@ -49,6 +67,7 @@ const booleanQuerySchema = (name: string) =>
 export const UsersListQuerySchema = baseQuerySchema(
   USER_SORTABLE_FIELDS,
 ).safeExtend({
+  role: RoleQuerySchema,
   emailVerified: booleanQuerySchema('Email Verified'),
 });
 
