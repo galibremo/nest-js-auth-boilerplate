@@ -23,6 +23,12 @@ const SESSION_SORTABLE_FIELDS: readonly SortableField[] = [
 ] as const;
 
 const SESSION_STATUS_VALUES = ['active', 'revoked', 'expired'] as const;
+const SESSION_DEVICE_TYPE_VALUES = [
+  'desktop',
+  'mobile',
+  'tablet',
+  'unknown',
+] as const;
 
 const StatusQuerySchema = validateString('Status')
   .transform((value) =>
@@ -44,12 +50,33 @@ const StatusQuerySchema = validateString('Status')
   )
   .optional();
 
+const DeviceTypeQuerySchema = validateString('Device Type')
+  .transform((value) =>
+    value
+      .toLowerCase()
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+  )
+  .refine(
+    (values) =>
+      values.every((deviceType) =>
+        SESSION_DEVICE_TYPE_VALUES.includes(
+          deviceType as (typeof SESSION_DEVICE_TYPE_VALUES)[number],
+        ),
+      ),
+    {
+      message: 'Device type is invalid',
+    },
+  )
+  .optional();
+
 export const SessionsListQuerySchema = baseQuerySchema(
   SESSION_SORTABLE_FIELDS,
 ).and(
   z.object({
     status: StatusQuerySchema,
-    deviceType: validateString('Device Type').optional(),
+    deviceType: DeviceTypeQuerySchema,
   }),
 );
 
@@ -60,7 +87,7 @@ export const SessionResponseSchema = z.object({
   ipAddress: validateString('IP Address').nullable(),
   userAgent: validateString('User Agent').nullable(),
   loginMethod: validateString('Login Method').nullable(),
-  status: validateEnum('Status', ['active', 'expired']),
+  status: validateEnum('Status', ['active', 'revoked', 'expired']),
   isCurrent: validateBoolean('Is Current'),
   isRevoked: validateBoolean('Is Revoked'),
   createdAt: validateDate('Created At'),

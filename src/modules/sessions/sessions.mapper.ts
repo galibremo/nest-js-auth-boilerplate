@@ -47,7 +47,8 @@ export function mapSessionResponse(
   currentToken: string,
 ): SessionResponse {
   const now = new Date();
-  const isExpired = row.expiresAt <= now;
+  const isRevoked = row.revokedAt != null;
+  const isExpired = !isRevoked && row.expiresAt <= now;
   const isCurrent = row.token === currentToken;
   const { deviceName, deviceType } = parseDeviceInfo(row.userAgent);
 
@@ -58,9 +59,9 @@ export function mapSessionResponse(
     ipAddress: row.ipAddress,
     userAgent: truncate(row.userAgent, 200),
     loginMethod: row.loginMethod,
-    status: isExpired ? 'expired' : 'active',
+    status: isRevoked ? 'revoked' : isExpired ? 'expired' : 'active',
     isCurrent,
-    isRevoked: false,
+    isRevoked,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     expiresAt: row.expiresAt,

@@ -13,6 +13,7 @@ import {
   ne,
   or,
   eq,
+  sql,
 } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
@@ -245,6 +246,44 @@ export class SessionsRepository {
         conditions.push(statusConditions[0]);
       } else if (statusConditions.length > 1) {
         conditions.push(or(...statusConditions) as SQL<unknown>);
+      }
+    }
+
+    if (query.deviceType?.length) {
+      const deviceConditions: SQL<unknown>[] = [];
+
+      if (query.deviceType.includes('unknown')) {
+        deviceConditions.push(isNull(schema.sessions.userAgent));
+      }
+
+      if (query.deviceType.includes('mobile')) {
+        deviceConditions.push(
+          sql`${schema.sessions.userAgent} ~* 'mobile|android|iphone|ipod|windows phone'`,
+        );
+      }
+
+      if (query.deviceType.includes('tablet')) {
+        deviceConditions.push(
+          and(
+            sql`${schema.sessions.userAgent} ~* 'tablet|ipad|playbook|silk'`,
+            sql`${schema.sessions.userAgent} !~* 'mobile|android|iphone|ipod|windows phone'`,
+          ) as SQL<unknown>,
+        );
+      }
+
+      if (query.deviceType.includes('desktop')) {
+        deviceConditions.push(
+          and(
+            isNotNull(schema.sessions.userAgent),
+            sql`${schema.sessions.userAgent} !~* 'mobile|android|iphone|ipod|windows phone|tablet|ipad|playbook|silk'`,
+          ) as SQL<unknown>,
+        );
+      }
+
+      if (deviceConditions.length === 1) {
+        conditions.push(deviceConditions[0]);
+      } else if (deviceConditions.length > 1) {
+        conditions.push(or(...deviceConditions) as SQL<unknown>);
       }
     }
 
