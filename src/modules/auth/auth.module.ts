@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthModule as BetterAuthModule } from '@thallesp/nestjs-better-auth';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
@@ -10,11 +10,14 @@ import type { EnvType } from '../../core/validators/env';
 
 import { AuthController } from './auth.controller';
 import { createAuth } from './auth.factory';
+import { AuthRepository } from './auth.repository';
 import { AuthService } from './auth.service';
+import { SessionsModule } from '../sessions/sessions.module';
 
 @Module({
   imports: [
     DatabaseModule,
+    forwardRef(() => SessionsModule),
     BetterAuthModule.forRootAsync({
       imports: [ConfigModule, DatabaseModule],
       inject: [DRIZZLE_DATABASE_CONNECTION, ConfigService],
@@ -30,7 +33,7 @@ import { AuthService } from './auth.service';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService],
+  providers: [AuthService, AuthRepository],
   exports: [AuthService],
 })
 export class AuthModule {}
