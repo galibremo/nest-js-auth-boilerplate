@@ -14,6 +14,7 @@ declare global {
     email: string;
     image: string | null;
     role: 'USER' | 'SUPER_ADMIN';
+    lastLoginMethod: string | null | undefined;
     emailVerified: boolean;
     createdAt: Date;
     updatedAt: Date;

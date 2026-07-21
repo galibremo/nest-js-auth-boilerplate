@@ -4,8 +4,53 @@ import { betterAuth } from 'better-auth';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import schema from '../../core/database/drizzle/drizzle.schema';
 import type { EnvType } from '../../core/validators/env';
+import { lastLoginMethod } from 'better-auth/plugins';
 
 export const BETTER_AUTH_BASE_PATH = '/internal/auth';
+
+type SessionLoginMethodContext = {
+  path?: string;
+  params?: {
+    id?: string;
+    providerId?: string;
+  };
+  body?: {
+    provider?: string;
+  };
+} | null;
+
+function resolveSessionLoginMethod(
+  context: SessionLoginMethodContext,
+): string | null {
+  if (!context?.path) {
+    return null;
+  }
+
+  const path = context.path;
+
+  if (path.startsWith('/callback/') || path.startsWith('/oauth2/callback/')) {
+    return (
+      context.params?.id ||
+      context.params?.providerId ||
+      path.split('/').pop() ||
+      null
+    );
+  }
+
+  if (path === '/sign-in/social') {
+    return context.body?.provider || null;
+  }
+
+  if (path === '/sign-in/email' || path === '/sign-up/email') {
+    return 'email';
+  }
+
+  if (path.startsWith('/magic-link/verify')) {
+    return 'magic-link';
+  }
+
+  return null;
+}
 
 export function createAuth(
   database: NodePgDatabase<typeof schema>,
@@ -32,6 +77,11 @@ export function createAuth(
       schema,
       usePlural: true,
     }),
+    plugins: [
+      lastLoginMethod({
+        storeInDatabase: true,
+      }),
+    ],
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: false,
@@ -39,7 +89,8 @@ export function createAuth(
     socialProviders: {
       google: {
         clientId: configService.get('GOOGLE_CLIENT_ID', { infer: true }) || '',
-        clientSecret: configService.get('GOOGLE_CLIENT_SECRET', { infer: true }) || '',
+        clientSecret:
+          configService.get('GOOGLE_CLIENT_SECRET', { infer: true }) || '',
       },
     },
     user: {
@@ -62,6 +113,32 @@ export function createAuth(
     session: {
       expiresIn: 60 * 60 * 24 * 7, // 7 days
       updateAge: 60 * 60 * 24, // 1 day (every 1 day the session expiration is updated)
+      additionalFields: {
+        loginMethod: {
+          type: 'string',
+          required: false,
+          input: false,
+        },
+      },
+    },
+    databaseHooks: {
+      session: {
+        create: {
+          before(session, context) {
+            const loginMethod = resolveSessionLoginMethod(context);
+            if (!loginMethod) {
+              return Promise.resolve();
+            }
+
+            return Promise.resolve({
+              data: {
+                ...session,
+                loginMethod,
+              },
+            });
+          },
+        },
+      },
     },
     advanced: {
       useSecureCookies: secureCookies,

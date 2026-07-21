@@ -15,5 +15,6 @@ export function mapUserResponse(
     emailVerified: session.user.emailVerified,
     createdAt: session.user.createdAt,
     updatedAt: session.user.updatedAt,
+		lastLoginMethod: session.user.lastLoginMethod,
   };
 }
