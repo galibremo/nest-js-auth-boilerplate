@@ -1,12 +1,15 @@
 import {
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
   Param,
+  ParseUUIDPipe,
   Post,
   Query,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -14,19 +17,21 @@ import {
   Session,
   type UserSession,
 } from '@thallesp/nestjs-better-auth';
-import type { Request as ExpressRequest } from 'express';
+import type { Request as ExpressRequest, Response } from 'express';
 
 import { createApiResponse } from '../../shared/helpers/api-response.helper';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import type { AuthInstance } from '../auth/auth.factory';
 import { mapUserResponse } from '../auth/auth.mapper';
 import type {
+  DeleteSessionApiResponse,
   RevokeOtherSessionsApiResponse,
   RevokeSessionApiResponse,
   SessionListApiResponse,
   SessionsListQueryDto,
 } from '../sessions/schemas/sessions.schema';
 import {
+  DeleteSessionApiResponseSchema,
   RevokeOtherSessionsApiResponseSchema,
   RevokeSessionApiResponseSchema,
   SessionListApiResponseSchema,
@@ -78,27 +83,6 @@ export class SessionsController {
     );
   }
 
-  @Post(':id/revoke')
-  @HttpCode(HttpStatus.OK)
-  async revokeSession(
-    @Session() session: UserSession<AuthInstance>,
-    @Req() request: ExpressRequest,
-    @Param('id') id: string,
-  ): Promise<RevokeSessionApiResponse> {
-    const currentUser = mapUserResponse(session);
-
-    const data = await this.sessionsService.revokeSession(currentUser, id);
-
-    return RevokeSessionApiResponseSchema.parse(
-      createApiResponse({
-        statusCode: HttpStatus.OK,
-        message: 'Session revoked successfully',
-        data,
-        path: request.url,
-      }),
-    );
-  }
-
   @Post('revoke-others')
   @HttpCode(HttpStatus.OK)
   async revokeOtherSessions(
@@ -121,5 +105,64 @@ export class SessionsController {
         path: request.url,
       }),
     );
+  }
+
+  @Post(':id/revoke')
+  @HttpCode(HttpStatus.OK)
+  async revokeSession(
+    @Session() session: UserSession<AuthInstance>,
+    @Req() request: ExpressRequest,
+    @Res({ passthrough: true }) res: Response,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<RevokeSessionApiResponse> {
+    const currentUser = mapUserResponse(session);
+
+    const data = await this.sessionsService.revokeSession(
+      currentUser,
+      id,
+      request.headers,
+    );
+    this.appendCookies(res, data.cookies);
+
+    return RevokeSessionApiResponseSchema.parse(
+      createApiResponse({
+        statusCode: HttpStatus.OK,
+        message: 'Session revoked successfully',
+        data: { revoked: data.revoked },
+        path: request.url,
+      }),
+    );
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  async deleteSession(
+    @Session() session: UserSession<AuthInstance>,
+    @Req() request: ExpressRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<DeleteSessionApiResponse> {
+    const currentUser = mapUserResponse(session);
+    const currentToken = session.session.token;
+
+    const data = await this.sessionsService.deleteSession(
+      currentUser,
+      id,
+      currentToken,
+    );
+
+    return DeleteSessionApiResponseSchema.parse(
+      createApiResponse({
+        statusCode: HttpStatus.OK,
+        message: 'Session deleted successfully',
+        data,
+        path: request.url,
+      }),
+    );
+  }
+
+  private appendCookies(response: Response, cookies: string[]): void {
+    cookies.forEach((cookie) => {
+      response.appendHeader('Set-Cookie', cookie);
+    });
   }
 }

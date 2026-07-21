@@ -36,6 +36,8 @@ export const sessions = pgTable(
     token: text('token').notNull().unique(),
     ipAddress: text('ip_address'),
     userAgent: text('user_agent'),
+    loginMethod: text('login_method'),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
     impersonatedBy: text('impersonated_by'),
     userId: integer('user_id')
       .notNull()

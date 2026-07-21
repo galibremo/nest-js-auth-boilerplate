@@ -1,13 +1,13 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { AuthService as BetterAuthService } from '@thallesp/nestjs-better-auth';
-import { eq } from 'drizzle-orm';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { fromNodeHeaders } from 'better-auth/node';
 import type { IncomingHttpHeaders } from 'node:http';
-
-import schema from '../../core/database/drizzle/drizzle.schema';
-import { DRIZZLE_DATABASE_CONNECTION } from '../../core/database/drizzle/drizzle.tokens';
-import { conflictError } from '../../core/errors/domain-error';
+import {
+  badRequestError,
+  conflictError,
+  DomainError,
+  notFoundError,
+} from '../../core/errors/domain-error';
 import { throwBetterAuthError } from './auth.error';
 import { AuthInstance } from './auth.factory';
 import type {
@@ -24,13 +24,16 @@ import type {
 } from './schemas/password.schema';
 import { BetterAuthSetPasswordResponseSchema } from './schemas/password.schema';
 import type { RegisterInput } from './schemas/register.schema';
+import { SessionsRepository } from '../sessions/sessions.repository';
+import { AuthRepository } from './auth.repository';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly betterAuth: BetterAuthService<AuthInstance>,
-    @Inject(DRIZZLE_DATABASE_CONNECTION)
-    private readonly db: NodePgDatabase<typeof schema>,
+    private readonly authRepository: AuthRepository,
+    @Inject(forwardRef(() => SessionsRepository))
+    private readonly sessionsRepository: SessionsRepository,
   ) {}
 
   async logout(requestHeaders: IncomingHttpHeaders): Promise<LogoutData> {
@@ -76,9 +79,7 @@ export class AuthService {
     input: RegisterInput,
     requestHeaders: IncomingHttpHeaders,
   ): Promise<LoginUserData> {
-    const existingUser = await this.db.query.users.findFirst({
-      where: eq(schema.users.email, input.email),
-    });
+    const existingUser = await this.authRepository.findUserByEmail(input.email);
 
     if (existingUser) {
       throw conflictError(
@@ -163,6 +164,97 @@ export class AuthService {
       return user;
     } catch (error: unknown) {
       throwBetterAuthError(error);
+    }
+  }
+
+  async toLoginUser(sessionUser: { id: string | number }): Promise<LoginUser> {
+    const hasPassword = await this.authRepository.hasCredentialAccount(
+      Number(sessionUser.id),
+    );
+
+    return BetterAuthLoginResponseSchema.parse({
+      user: {
+        ...sessionUser,
+        hasPassword,
+      },
+    }).user;
+  }
+
+  async revokeSession(
+    sessionId: string,
+    requestHeaders: IncomingHttpHeaders,
+  ): Promise<{ status: boolean; cookies: string[] }> {
+    try {
+      const session =
+        await this.sessionsRepository.findSessionByPublicId(sessionId);
+
+      if (!session || session.revokedAt) {
+        throw notFoundError('session_not_found', 'Session not found');
+      }
+
+      const current = await this.betterAuth.api.getSession({
+        headers: fromNodeHeaders(requestHeaders),
+      });
+
+      if (!current?.user || Number(current.user.id) !== session.userId) {
+        throw notFoundError('session_not_found', 'Session not found');
+      }
+
+      const isCurrent = current.session.token === session.token;
+      await this.sessionsRepository.softRevokeSessionById(session.id);
+
+      let cookies: string[] = [];
+      if (isCurrent) {
+        cookies = await this.clearSessionCookies(requestHeaders);
+      }
+
+      return { status: true, cookies };
+    } catch (error) {
+      if (error instanceof DomainError) {
+        throw error;
+      }
+      throwBetterAuthError(error);
+    }
+  }
+
+  async revokeOtherSessions(
+    requestHeaders: IncomingHttpHeaders,
+  ): Promise<{ status: boolean; cookies: string[] }> {
+    try {
+      const current = await this.betterAuth.api.getSession({
+        headers: fromNodeHeaders(requestHeaders),
+      });
+
+      if (!current?.user || !current.session) {
+        throw badRequestError('session_not_found');
+      }
+
+      await this.sessionsRepository.softRevokeOtherSessions(
+        Number(current.user.id),
+        Number(current.session.id),
+      );
+
+      return { status: true, cookies: [] };
+    } catch (error) {
+      if (error instanceof DomainError) {
+        throw error;
+      }
+      throwBetterAuthError(error);
+    }
+  }
+
+  private async clearSessionCookies(
+    requestHeaders: IncomingHttpHeaders,
+  ): Promise<string[]> {
+    try {
+      const { headers } = await this.betterAuth.api.signOut({
+        headers: fromNodeHeaders(requestHeaders),
+        returnHeaders: true,
+      });
+
+      return headers.getSetCookie();
+    } catch {
+      return [];
     }
   }
 }

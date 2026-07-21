@@ -13,6 +13,8 @@ export interface SessionRow {
   userAgent: string | null;
   userId: number;
   userRole: RoleTypeEnum;
+  loginMethod: string | null;
+  revokedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

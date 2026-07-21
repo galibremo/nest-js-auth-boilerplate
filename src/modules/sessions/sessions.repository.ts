@@ -1,6 +1,19 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { SQL } from 'drizzle-orm';
-import { and, count, desc, eq, gt, gte, ilike, lte, ne, or } from 'drizzle-orm';
+import {
+  and,
+  count,
+  desc,
+  gt,
+  gte,
+  ilike,
+  isNotNull,
+  isNull,
+  lte,
+  ne,
+  or,
+  eq,
+} from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import { orderByColumn } from '../../core/database/helpers';
@@ -8,8 +21,30 @@ import type { SessionsListQueryDto } from '../sessions/schemas/sessions.schema';
 import type { SessionRow } from './sessions.types';
 import { DRIZZLE_DATABASE_CONNECTION } from 'src/core/database/drizzle/drizzle.tokens';
 import schema from 'src/core/database/drizzle/drizzle.schema';
+import { randomUUID } from 'node:crypto';
 
 type SessionsDatabase = NodePgDatabase<typeof schema>;
+
+function toSessionRow(
+  row: typeof schema.sessions.$inferSelect & {
+    user: typeof schema.users.$inferSelect;
+  },
+): SessionRow {
+  return {
+    id: row.id,
+    publicId: row.publicId,
+    token: row.token,
+    expiresAt: row.expiresAt,
+    ipAddress: row.ipAddress,
+    userAgent: row.userAgent,
+    loginMethod: row.loginMethod,
+    revokedAt: row.revokedAt,
+    userId: row.userId,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    userRole: row.user.role,
+  };
+}
 
 @Injectable()
 export class SessionsRepository {
@@ -34,35 +69,22 @@ export class SessionsRepository {
     const offset = (page - 1) * pageSize;
     const orderBy = this.getOrderBy(query.sort, query.dir);
 
-    const [rows, totalRows] = await Promise.all([
-      this.db
-        .select({
-          id: schema.sessions.id,
-          publicId: schema.sessions.publicId,
-          token: schema.sessions.token,
-          expiresAt: schema.sessions.expiresAt,
-          ipAddress: schema.sessions.ipAddress,
-          userAgent: schema.sessions.userAgent,
-          userId: schema.sessions.userId,
-          userRole: schema.users.role,
-          createdAt: schema.sessions.createdAt,
-          updatedAt: schema.sessions.updatedAt,
-        })
-        .from(schema.sessions)
-        .innerJoin(schema.users, eq(schema.sessions.userId, schema.users.id))
-        .where(whereClause)
-        .orderBy(orderBy ?? desc(schema.sessions.createdAt))
-        .limit(pageSize)
-        .offset(offset),
+    const [rawRows, totalRows] = await Promise.all([
+      this.db.query.sessions.findMany({
+        where: whereClause,
+        with: { user: true },
+        orderBy: orderBy ?? desc(schema.sessions.createdAt),
+        limit: pageSize,
+        offset,
+      }),
       this.db
         .select({ value: count() })
         .from(schema.sessions)
-        .innerJoin(schema.users, eq(schema.sessions.userId, schema.users.id))
         .where(whereClause),
     ]);
 
     return {
-      rows,
+      rows: rawRows.map(toSessionRow),
       total: Number(totalRows[0]?.value ?? 0),
       page,
       pageSize,
@@ -72,25 +94,12 @@ export class SessionsRepository {
   async findSessionByPublicId(
     publicId: string,
   ): Promise<SessionRow | undefined> {
-    const rows = await this.db
-      .select({
-        id: schema.sessions.id,
-        publicId: schema.sessions.publicId,
-        token: schema.sessions.token,
-        expiresAt: schema.sessions.expiresAt,
-        ipAddress: schema.sessions.ipAddress,
-        userAgent: schema.sessions.userAgent,
-        userId: schema.sessions.userId,
-        userRole: schema.users.role,
-        createdAt: schema.sessions.createdAt,
-        updatedAt: schema.sessions.updatedAt,
-      })
-      .from(schema.sessions)
-      .innerJoin(schema.users, eq(schema.sessions.userId, schema.users.id))
-      .where(eq(schema.sessions.publicId, publicId))
-      .limit(1);
+    const row = await this.db.query.sessions.findFirst({
+      where: eq(schema.sessions.publicId, publicId),
+      with: { user: true },
+    });
 
-    return rows[0];
+    return row ? toSessionRow(row) : undefined;
   }
 
   async updateSessionMetadata(
@@ -107,27 +116,67 @@ export class SessionsRepository {
       .where(eq(schema.sessions.id, sessionId));
   }
 
-  async revokeSessionById(sessionId: number): Promise<void> {
+  async softRevokeSessionById(sessionId: number): Promise<boolean> {
+    const result = await this.db
+      .update(schema.sessions)
+      .set({
+        revokedAt: new Date(),
+        token: `revoked_${randomUUID()}`,
+      })
+      .where(
+        and(
+          eq(schema.sessions.id, sessionId),
+          isNull(schema.sessions.revokedAt),
+        ),
+      )
+      .returning({ id: schema.sessions.id });
+
+    return result.length > 0;
+  }
+
+  async softRevokeOtherSessions(
+    userId: number,
+    currentSessionId: number,
+  ): Promise<number> {
+    const rows = await this.db
+      .select({ id: schema.sessions.id })
+      .from(schema.sessions)
+      .where(
+        and(
+          eq(schema.sessions.userId, userId),
+          ne(schema.sessions.id, currentSessionId),
+          isNull(schema.sessions.revokedAt),
+        ),
+      );
+
+    const revokedAt = new Date();
+
+    for (const row of rows) {
+      await this.db
+        .update(schema.sessions)
+        .set({
+          revokedAt,
+          token: `revoked_${randomUUID()}`,
+        })
+        .where(eq(schema.sessions.id, row.id));
+    }
+
+    return rows.length;
+  }
+
+  async deleteSessionById(sessionId: number): Promise<void> {
     await this.db
       .delete(schema.sessions)
       .where(eq(schema.sessions.id, sessionId));
   }
 
-  async revokeOtherSessions(
-    userId: number,
-    currentSessionId: number,
-  ): Promise<number> {
-    const result = await this.db
+  async revokeAllSessionsForUser(userId: number): Promise<number> {
+    const revokedSessions = await this.db
       .delete(schema.sessions)
-      .where(
-        and(
-          eq(schema.sessions.userId, userId),
-          ne(schema.sessions.id, currentSessionId),
-        ),
-      )
+      .where(eq(schema.sessions.userId, userId))
       .returning({ id: schema.sessions.id });
 
-    return result.length;
+    return revokedSessions.length;
   }
 
   async countActiveOtherSessions(
@@ -142,6 +191,7 @@ export class SessionsRepository {
         and(
           eq(schema.sessions.userId, userId),
           ne(schema.sessions.id, currentSessionId),
+          isNull(schema.sessions.revokedAt),
           gt(schema.sessions.expiresAt, now),
         ),
       );
@@ -167,16 +217,34 @@ export class SessionsRepository {
     }
 
     if (query.status?.length) {
-      if (
-        query.status.includes('active') &&
-        !query.status.includes('expired')
-      ) {
-        conditions.push(gt(schema.sessions.expiresAt, now));
-      } else if (
-        query.status.includes('expired') &&
-        !query.status.includes('active')
-      ) {
-        conditions.push(lte(schema.sessions.expiresAt, now));
+      const statusConditions: SQL<unknown>[] = [];
+
+      if (query.status.includes('active')) {
+        statusConditions.push(
+          and(
+            isNull(schema.sessions.revokedAt),
+            gt(schema.sessions.expiresAt, now),
+          ) as SQL<unknown>,
+        );
+      }
+
+      if (query.status.includes('expired')) {
+        statusConditions.push(
+          and(
+            isNull(schema.sessions.revokedAt),
+            lte(schema.sessions.expiresAt, now),
+          ) as SQL<unknown>,
+        );
+      }
+
+      if (query.status.includes('revoked')) {
+        statusConditions.push(isNotNull(schema.sessions.revokedAt));
+      }
+
+      if (statusConditions.length === 1) {
+        conditions.push(statusConditions[0]);
+      } else if (statusConditions.length > 1) {
+        conditions.push(or(...statusConditions) as SQL<unknown>);
       }
     }
 

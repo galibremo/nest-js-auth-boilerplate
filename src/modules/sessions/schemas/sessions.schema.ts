@@ -22,6 +22,8 @@ const SESSION_SORTABLE_FIELDS: readonly SortableField[] = [
   { name: 'expiresAt', queryName: 'expiresAt' },
 ] as const;
 
+const SESSION_STATUS_VALUES = ['active', 'revoked', 'expired'] as const;
+
 const StatusQuerySchema = validateString('Status')
   .transform((value) =>
     value
@@ -31,8 +33,14 @@ const StatusQuerySchema = validateString('Status')
   )
   .refine(
     (values) =>
-      values.every((status) => ['active', 'expired'].includes(status)),
-    { message: 'Status is invalid' },
+      values.every((status) =>
+        SESSION_STATUS_VALUES.includes(
+          status as (typeof SESSION_STATUS_VALUES)[number],
+        ),
+      ),
+    {
+      message: 'Status is invalid',
+    },
   )
   .optional();
 
@@ -51,6 +59,7 @@ export const SessionResponseSchema = z.object({
   deviceType: validateString('Device Type'),
   ipAddress: validateString('IP Address').nullable(),
   userAgent: validateString('User Agent').nullable(),
+  loginMethod: validateString('Login Method').nullable(),
   status: validateEnum('Status', ['active', 'expired']),
   isCurrent: validateBoolean('Is Current'),
   isRevoked: validateBoolean('Is Revoked'),
@@ -78,6 +87,10 @@ export const RevokeOtherSessionsResponseSchema = z.object({
   revokedCount: validateNumber('Revoked Count', { min: 0, int: true }),
 });
 
+export const DeleteSessionResponseSchema = z.object({
+  deleted: validateBoolean('Deleted'),
+});
+
 export const SessionListApiResponseSchema = createApiResponseSchema(
   SessionListResponseSchema,
 );
@@ -86,6 +99,10 @@ export const RevokeSessionApiResponseSchema = createApiResponseSchema(
 );
 export const RevokeOtherSessionsApiResponseSchema = createApiResponseSchema(
   RevokeOtherSessionsResponseSchema,
+);
+
+export const DeleteSessionApiResponseSchema = createApiResponseSchema(
+  DeleteSessionResponseSchema,
 );
 
 export type SessionsListQueryDto = z.infer<typeof SessionsListQuerySchema>;
@@ -99,4 +116,7 @@ export type RevokeSessionApiResponse = z.infer<
 >;
 export type RevokeOtherSessionsApiResponse = z.infer<
   typeof RevokeOtherSessionsApiResponseSchema
+>;
+export type DeleteSessionApiResponse = z.infer<
+  typeof DeleteSessionApiResponseSchema
 >;

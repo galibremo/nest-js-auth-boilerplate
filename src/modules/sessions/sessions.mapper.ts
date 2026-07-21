@@ -57,6 +57,7 @@ export function mapSessionResponse(
     deviceType,
     ipAddress: row.ipAddress,
     userAgent: truncate(row.userAgent, 200),
+    loginMethod: row.loginMethod,
     status: isExpired ? 'expired' : 'active',
     isCurrent,
     isRevoked: false,

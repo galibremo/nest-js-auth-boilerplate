@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import { SessionRow } from '../sessions/sessions.types';
@@ -25,6 +25,8 @@ export class AuthRepository {
         token: schema.sessions.token,
         expiresAt: schema.sessions.expiresAt,
         ipAddress: schema.sessions.ipAddress,
+        loginMethod: schema.sessions.loginMethod,
+        revokedAt: schema.sessions.revokedAt,
         userAgent: schema.sessions.userAgent,
         userId: schema.sessions.userId,
         userRole: schema.users.role,
@@ -34,6 +36,33 @@ export class AuthRepository {
       .from(schema.sessions)
       .innerJoin(schema.users, eq(schema.sessions.userId, schema.users.id))
       .where(eq(schema.sessions.publicId, publicId))
+      .limit(1);
+
+    return rows[0];
+  }
+
+  async hasCredentialAccount(userId: number): Promise<boolean> {
+    const rows = await this.db
+      .select({ id: schema.accounts.id })
+      .from(schema.accounts)
+      .where(
+        and(
+          eq(schema.accounts.userId, userId),
+          eq(schema.accounts.providerId, 'credential'),
+        ),
+      )
+      .limit(1);
+
+    return rows.length > 0;
+  }
+
+  async findUserByEmail(
+    email: string,
+  ): Promise<typeof schema.users.$inferSelect | undefined> {
+    const rows = await this.db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.email, email))
       .limit(1);
 
     return rows[0];
