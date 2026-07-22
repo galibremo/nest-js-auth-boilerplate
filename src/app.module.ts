@@ -9,6 +9,9 @@ import { ZodValidationPipe } from './shared/pipes/zod-validation.pipe';
 import { AuthModule } from './modules/auth/auth.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
 import { UsersModule } from './modules/users/users.module';
+import { EmailLogsModule } from './modules/email-logs/email-logs.module';
+import { EmailProviderModule } from './modules/email-provider/email-provider.module';
+import { EmailTemplateModule } from './modules/email-template/email-template.module';
 
 @Module({
   imports: [
@@ -33,6 +36,9 @@ import { UsersModule } from './modules/users/users.module';
     AuthModule,
     SessionsModule,
     UsersModule,
+    EmailLogsModule,
+    EmailProviderModule,
+    EmailTemplateModule,
   ],
   controllers: [],
   providers: [
