@@ -68,7 +68,7 @@ export const EnvSchema = z
     ...CookieEnvSchema.shape,
     ...AllSecretsEnvSchema.shape,
     ...GoogleEnvSchema.shape,
-    ...S3EnvSchema,
+    ...S3EnvSchema.shape,
   })
   .superRefine((data, ctx) => {
     if (data.GOOGLE_CLIENT_ID || data.GOOGLE_CLIENT_SECRET) {
