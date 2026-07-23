@@ -36,7 +36,21 @@ const GoogleEnvSchema = z.object({
   GOOGLE_CLIENT_SECRET: validateString('GOOGLE_CLIENT_SECRET').optional(),
 });
 
-const schemas = [CoreEnvSchema, CookieEnvSchema, AllSecretsEnvSchema, GoogleEnvSchema];
+const S3EnvSchema = z.object({
+  S3_REGION: validateString('S3_REGION'),
+  S3_BUCKET: validateString('S3_BUCKET'),
+  S3_ACCESS_KEY_ID: validateString('S3_ACCESS_KEY_ID'),
+  S3_SECRET_ACCESS_KEY: validateString('S3_SECRET_ACCESS_KEY'),
+  S3_ENDPOINT: validateString('S3_ENDPOINT').optional(),
+});
+
+const schemas = [
+  CoreEnvSchema,
+  CookieEnvSchema,
+  AllSecretsEnvSchema,
+  GoogleEnvSchema,
+  S3EnvSchema,
+];
 
 const seenKeys = new Set<string>();
 for (const schema of schemas) {
@@ -48,29 +62,34 @@ for (const schema of schemas) {
   }
 }
 
-export const EnvSchema = z.object({
-  ...CoreEnvSchema.shape,
-  ...CookieEnvSchema.shape,
-  ...AllSecretsEnvSchema.shape,
-  ...GoogleEnvSchema.shape,
-}).superRefine((data, ctx) => {
-  if (data.GOOGLE_CLIENT_ID || data.GOOGLE_CLIENT_SECRET) {
-    if (!data.GOOGLE_CLIENT_ID) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'GOOGLE_CLIENT_ID is required when GOOGLE_CLIENT_SECRET is provided',
-        path: ['GOOGLE_CLIENT_ID'],
-      });
+export const EnvSchema = z
+  .object({
+    ...CoreEnvSchema.shape,
+    ...CookieEnvSchema.shape,
+    ...AllSecretsEnvSchema.shape,
+    ...GoogleEnvSchema.shape,
+    ...S3EnvSchema,
+  })
+  .superRefine((data, ctx) => {
+    if (data.GOOGLE_CLIENT_ID || data.GOOGLE_CLIENT_SECRET) {
+      if (!data.GOOGLE_CLIENT_ID) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            'GOOGLE_CLIENT_ID is required when GOOGLE_CLIENT_SECRET is provided',
+          path: ['GOOGLE_CLIENT_ID'],
+        });
+      }
+      if (!data.GOOGLE_CLIENT_SECRET) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            'GOOGLE_CLIENT_SECRET is required when GOOGLE_CLIENT_ID is provided',
+          path: ['GOOGLE_CLIENT_SECRET'],
+        });
+      }
     }
-    if (!data.GOOGLE_CLIENT_SECRET) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'GOOGLE_CLIENT_SECRET is required when GOOGLE_CLIENT_ID is provided',
-        path: ['GOOGLE_CLIENT_SECRET'],
-      });
-    }
-  }
-});
+  });
 
 export type EnvType = z.infer<typeof EnvSchema>;
 

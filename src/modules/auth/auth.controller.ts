@@ -5,9 +5,11 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Put,
   Req,
   Res,
   UseGuards,
+  UseInterceptors,
   UsePipes,
 } from '@nestjs/common';
 import {
@@ -27,6 +29,7 @@ import type { LoginInput, LoginResponse } from './schemas/login.schema';
 import { LoginInputSchema, LoginResponseSchema } from './schemas/login.schema';
 import type { LogoutResponse } from './schemas/logout.schema';
 import { LogoutResponseSchema } from './schemas/logout.schema';
+import { FileInterceptor } from '@nestjs/platform-express';
 import type {
   ChangePasswordInput,
   ChangePasswordResponse,
@@ -39,11 +42,22 @@ import {
   SetPasswordInputSchema,
   SetPasswordResponseSchema,
 } from './schemas/password.schema';
-import type { RegisterInput, RegisterResponse } from './schemas/register.schema';
+import type {
+  RegisterInput,
+  RegisterResponse,
+} from './schemas/register.schema';
 import {
   RegisterInputSchema,
   RegisterResponseSchema,
 } from './schemas/register.schema';
+import {
+  MAX_PROFILE_IMAGE_BYTES,
+  PROFILE_IMAGE_MIME_TYPES,
+  type UpdateProfileInput,
+  UpdateProfileInputSchema,
+  UpdateProfileResponse,
+  UpdateProfileResponseSchema,
+} from './schemas/profile.schema';
 
 @Controller('auth')
 export class AuthController {
@@ -198,10 +212,56 @@ export class AuthController {
     );
   }
 
+  @Put('profile')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard)
+  @UsePipes(new ZodValidationPipe(UpdateProfileInputSchema))
+  async updateProfile(
+    @Body() input: UpdateProfileInput,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<UpdateProfileResponse> {
+    const { user, cookies } = await this.authService.updateProfile(
+      input,
+      req.headers,
+    );
+    this.appendCookies(res, cookies);
+
+    return UpdateProfileResponseSchema.parse(
+      createApiResponse({
+        statusCode: HttpStatus.OK,
+        message: 'Profile updated successfully',
+        data: user,
+        path: req.url,
+      }),
+    );
+  }
+
+  @Put('profile/image')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard)
+  @UseInterceptors(
+    FileInterceptor('avatar', {
+      limits: {
+        fileSize: MAX_PROFILE_IMAGE_BYTES,
+      },
+      fileFilter: (_req, file, callback) => {
+        const mimeType =
+          file.mimetype as (typeof PROFILE_IMAGE_MIME_TYPES)[number];
+        if (!PROFILE_IMAGE_MIME_TYPES.includes(mimeType)) {
+          return callback(
+            new Error('Profile image must be a PNG, JPG, or WEBP file.'),
+            false,
+          );
+        }
+        callback(null, true);
+      },
+    }),
+  )
+
   // ──────────────────────────────────────────────
   // Private helpers
   // ──────────────────────────────────────────────
-
   private appendCookies(response: Response, cookies: string[]): void {
     cookies.forEach((cookie) => {
       response.append('Set-Cookie', cookie);

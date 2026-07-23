@@ -1,4 +1,5 @@
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
+import 'multer';
 import { AuthService as BetterAuthService } from '@thallesp/nestjs-better-auth';
 import { fromNodeHeaders } from 'better-auth/node';
 import type { IncomingHttpHeaders } from 'node:http';
@@ -26,6 +27,10 @@ import { BetterAuthSetPasswordResponseSchema } from './schemas/password.schema';
 import type { RegisterInput } from './schemas/register.schema';
 import { SessionsRepository } from '../sessions/sessions.repository';
 import { AuthRepository } from './auth.repository';
+import {
+  BetterAuthUpdateUserResponseSchema,
+  UpdateProfileInput,
+} from './schemas/profile.schema';
 
 @Injectable()
 export class AuthService {
@@ -35,6 +40,22 @@ export class AuthService {
     @Inject(forwardRef(() => SessionsRepository))
     private readonly sessionsRepository: SessionsRepository,
   ) {}
+
+  async getSession(requestHeaders: IncomingHttpHeaders): Promise<LoginUser> {
+    try {
+      const session = await this.betterAuth.api.getSession({
+        headers: fromNodeHeaders(requestHeaders),
+      });
+
+      if (!session?.user) {
+        throw badRequestError('session_not_found');
+      }
+
+      return await this.toLoginUser(session.user);
+    } catch (error) {
+      throwBetterAuthError(error);
+    }
+  }
 
   async logout(requestHeaders: IncomingHttpHeaders): Promise<LogoutData> {
     try {
@@ -239,6 +260,35 @@ export class AuthService {
       if (error instanceof DomainError) {
         throw error;
       }
+      throwBetterAuthError(error);
+    }
+  }
+
+  async updateProfile(
+    input: UpdateProfileInput,
+    requestHeaders: IncomingHttpHeaders,
+  ): Promise<LoginUserData> {
+    try {
+      const { response, headers } = await this.betterAuth.api.updateUser({
+        body: {
+          name: input.name,
+        },
+        headers: fromNodeHeaders(requestHeaders),
+        returnHeaders: true,
+      });
+
+      BetterAuthUpdateUserResponseSchema.parse(response);
+
+      const sessionUser = await this.getSession(requestHeaders);
+
+      return {
+        user: {
+          ...sessionUser,
+          name: input.name,
+        },
+        cookies: headers.getSetCookie(),
+      };
+    } catch (error: unknown) {
       throwBetterAuthError(error);
     }
   }

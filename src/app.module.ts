@@ -12,6 +12,8 @@ import { UsersModule } from './modules/users/users.module';
 import { EmailLogsModule } from './modules/email-logs/email-logs.module';
 import { EmailProviderModule } from './modules/email-provider/email-provider.module';
 import { EmailTemplateModule } from './modules/email-template/email-template.module';
+import { StorageModule } from './core/storage/storage.module';
+import { MediaModule } from './modules/media/media.module';
 
 @Module({
   imports: [
@@ -31,7 +33,9 @@ import { EmailTemplateModule } from './modules/email-template/email-template.mod
         limit: 100,
       },
     ]),
+    MediaModule,
     DatabaseModule,
+    StorageModule,
     CryptoModule,
     AuthModule,
     SessionsModule,
