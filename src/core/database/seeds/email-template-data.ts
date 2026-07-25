@@ -99,14 +99,6 @@ function dividerHtml(): string {
     return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:20px 0;"><tr><td style="height:1px;background-color:${BORDER_COLOR};font-size:0;line-height:0;">&nbsp;</td></tr></table>`;
 }
 
-function detailRowHtml(label: string, value: string): string {
-    return `<tr><td style="padding:6px 0;font-size:14px;color:${MUTED_TEXT};width:140px;vertical-align:top;">${label}</td><td style="padding:6px 0;font-size:14px;color:${HEADING_TEXT};vertical-align:top;">${value}</td></tr>`;
-}
-
-function detailsTableHtml(rows: string): string {
-    return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0;">${rows}</table>`;
-}
-
 export const EMAIL_TEMPLATE_SEED_DATA: EmailTemplateSeedItem[] = [
     // ── Auth: Welcome ──────────────────────────────────────────────
     {
