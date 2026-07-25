@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
-import { zodMessages } from 'src/shared/helpers/message.helper';
+import { zodMessages } from '../../shared/helpers/message.helper';
 
 // =======================
 // 🔹 Helper: Create Error Config

@@ -29,7 +29,7 @@ export class EmailProvidersRepository {
   constructor(
     @Inject(DRIZZLE_DATABASE_CONNECTION)
     private readonly db: EmailProvidersDatabase,
-  ) {}
+  ) { }
 
   async findAll(query: EmailProvidersListQueryDto): Promise<{
     rows: EmailProviderSchemaType[];
@@ -188,9 +188,9 @@ export class EmailProvidersRepository {
       conditions.push(
         legacyTypes.length > 0
           ? inArray(schema.emailProviders.providerType, [
-              query.providerType,
-              ...legacyTypes,
-            ])
+            query.providerType,
+            ...legacyTypes,
+          ])
           : eq(schema.emailProviders.providerType, query.providerType),
       );
     }

@@ -7,7 +7,7 @@ import { orderByColumn } from '../../core/database/helpers';
 import schema from '../../core/database/drizzle/drizzle.schema';
 import type { EmailTemplateSchemaType } from '../../core/database/drizzle/drizzle.types';
 import type { EmailTemplateListQueryDto } from './schemas/email-template-list.schema';
-import { DRIZZLE_DATABASE_CONNECTION } from 'src/core/database/drizzle/drizzle.tokens';
+import { DRIZZLE_DATABASE_CONNECTION } from '../../../src/core/database/drizzle/drizzle.tokens';
 
 export type EmailTemplateDatabase = NodePgDatabase<typeof schema>;
 
@@ -16,7 +16,7 @@ export class EmailTemplateRepository {
   constructor(
     @Inject(DRIZZLE_DATABASE_CONNECTION)
     private readonly db: EmailTemplateDatabase,
-  ) {}
+  ) { }
 
   async findActiveByKey(
     templateKey: string,

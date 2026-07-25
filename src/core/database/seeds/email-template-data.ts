@@ -16,9 +16,9 @@ const PRIMARY = '#10b981';
 const HEADING_TEXT = '#f3f4f6';
 const BODY_TEXT = '#e5e7eb';
 const MUTED_TEXT = '#d1d5db';
-const APP_NAME = 'Onedesk Pro';
-const COMPANY_NAME = 'Typetech It';
-const COMPANY_ADDRESS = 'Mirpur DOHS, Dhaka';
+const APP_NAME = 'Boilerplate App';
+const COMPANY_NAME = 'Boilerplate';
+const COMPANY_ADDRESS = 'Dhaka, Bangladesh';
 
 function wrapHtml(content: string): string {
     return `<!DOCTYPE html>

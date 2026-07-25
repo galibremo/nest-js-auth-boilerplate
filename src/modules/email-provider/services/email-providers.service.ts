@@ -28,7 +28,7 @@ export class EmailProvidersService {
     private readonly repository: EmailProvidersRepository,
     private readonly cryptoService: CryptoService,
     private readonly emailSdkDispatchService: EmailSdkDispatchService,
-  ) {}
+  ) { }
 
   async listProviders(query: EmailProvidersListQueryDto) {
     const result = await this.repository.findAll(query);
@@ -172,8 +172,8 @@ export class EmailProvidersService {
         provider,
         {
           to: data.to,
-          subject: data.subject ?? 'Onedesk Pro email provider test',
-          text: data.text ?? 'This is a smoke test email from Onedesk Pro.',
+          subject: data.subject ?? 'Boilerplate App email provider test',
+          text: data.text ?? 'This is a smoke test email from Boilerplate App.',
           html: data.html,
           idempotencyKey: `email-provider-test:${provider.publicId}:${Date.now()}`,
           metadata: {
