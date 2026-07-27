@@ -36,12 +36,10 @@ const GoogleEnvSchema = z.object({
   GOOGLE_CLIENT_SECRET: validateString('GOOGLE_CLIENT_SECRET').optional(),
 });
 
-const S3EnvSchema = z.object({
-  S3_REGION: validateString('S3_REGION'),
-  S3_BUCKET: validateString('S3_BUCKET'),
-  S3_ACCESS_KEY_ID: validateString('S3_ACCESS_KEY_ID'),
-  S3_SECRET_ACCESS_KEY: validateString('S3_SECRET_ACCESS_KEY'),
-  S3_ENDPOINT: validateString('S3_ENDPOINT').optional(),
+const CloudinaryEnvSchema = z.object({
+  CLOUDINARY_CLOUD_NAME: validateString('CLOUDINARY_CLOUD_NAME'),
+  CLOUDINARY_API_KEY: validateString('CLOUDINARY_API_KEY'),
+  CLOUDINARY_API_SECRET: validateString('CLOUDINARY_API_SECRET'),
 });
 
 const schemas = [
@@ -49,7 +47,7 @@ const schemas = [
   CookieEnvSchema,
   AllSecretsEnvSchema,
   GoogleEnvSchema,
-  S3EnvSchema,
+  CloudinaryEnvSchema,
 ];
 
 const seenKeys = new Set<string>();
@@ -68,7 +66,7 @@ export const EnvSchema = z
     ...CookieEnvSchema.shape,
     ...AllSecretsEnvSchema.shape,
     ...GoogleEnvSchema.shape,
-    ...S3EnvSchema.shape,
+    ...CloudinaryEnvSchema.shape,
   })
   .superRefine((data, ctx) => {
     if (data.GOOGLE_CLIENT_ID || data.GOOGLE_CLIENT_SECRET) {

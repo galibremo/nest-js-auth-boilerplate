@@ -1,132 +1,60 @@
-import {
-  DeleteObjectCommand,
-  GetObjectCommand,
-  PutObjectCommand,
-  S3Client,
-} from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { v2 as cloudinary } from 'cloudinary';
 import type { EnvType } from '../validators/env';
-
-export type StoredObject = {
-  body: Buffer;
-  contentType: string;
-};
 
 @Injectable()
 export class StorageService {
-  private readonly s3Client: S3Client;
-  private readonly bucket: string;
   private readonly logger = new Logger(StorageService.name);
 
   constructor(private readonly configService: ConfigService<EnvType, true>) {
-    this.bucket = this.configService.get('S3_BUCKET', { infer: true });
-
-    this.s3Client = new S3Client({
-      region: this.configService.get('S3_REGION', { infer: true }),
-      endpoint: this.configService.get('S3_ENDPOINT', { infer: true }),
-      credentials: {
-        accessKeyId: this.configService.get('S3_ACCESS_KEY_ID', {
-          infer: true,
-        }),
-        secretAccessKey: this.configService.get('S3_SECRET_ACCESS_KEY', {
-          infer: true,
-        }),
-      },
-      forcePathStyle: true, // Required for SeaweedFS/MinIO
+    cloudinary.config({
+      cloud_name: this.configService.get('CLOUDINARY_CLOUD_NAME', {
+        infer: true,
+      }),
+      api_key: this.configService.get('CLOUDINARY_API_KEY', { infer: true }),
+      api_secret: this.configService.get('CLOUDINARY_API_SECRET', {
+        infer: true,
+      }),
     });
-  }
-
-  getPublicUrl(key: string): string {
-    const endpoint = this.configService.get('S3_ENDPOINT', { infer: true });
-    if (endpoint) {
-      return `${endpoint.replace(/\/$/, '')}/${this.bucket}/${key}`;
-    }
-    return `https://${this.bucket}.s3.${this.configService.get('S3_REGION', { infer: true })}.amazonaws.com/${key}`;
   }
 
   async uploadFile(
     buffer: Buffer,
     key: string,
-    mimeType: string,
+    mimeType: string, // Kept for compatibility, though Cloudinary detects it
   ): Promise<string> {
-    try {
-      const command = new PutObjectCommand({
-        Bucket: this.bucket,
-        Key: key,
-        Body: buffer,
-        ContentType: mimeType,
-        CacheControl: 'public, max-age=31536000, immutable',
-      });
-
-      await this.s3Client.send(command);
-
-      return this.getPublicUrl(key);
-    } catch (error) {
-      this.logger.error(`Failed to upload file to S3: ${key}`, error);
-      throw error;
-    }
-  }
-
-  async getFile(key: string): Promise<StoredObject> {
-    try {
-      const command = new GetObjectCommand({
-        Bucket: this.bucket,
-        Key: key,
-      });
-
-      const response = await this.s3Client.send(command);
-      const bytes = await response.Body?.transformToByteArray();
-
-      if (!bytes) {
-        throw new Error(`Empty object body for key: ${key}`);
-      }
-
-      return {
-        body: Buffer.from(bytes),
-        contentType: response.ContentType ?? 'application/octet-stream',
-      };
-    } catch (error) {
-      this.logger.error(`Failed to get file from S3: ${key}`, error);
-      throw error;
-    }
-  }
-
-  async generatePresignedUrl(
-    key: string,
-    mimeType: string,
-    expiresInSeconds = 3600,
-  ): Promise<string> {
-    try {
-      const command = new PutObjectCommand({
-        Bucket: this.bucket,
-        Key: key,
-        ContentType: mimeType,
-      });
-
-      return await getSignedUrl(this.s3Client, command, {
-        expiresIn: expiresInSeconds,
-      });
-    } catch (error) {
-      this.logger.error(
-        `Failed to generate presigned URL for key: ${key}`,
-        error,
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          public_id: key,
+          resource_type: 'auto',
+        },
+        (error, result) => {
+          if (error) {
+            this.logger.error(
+              `Failed to upload file to Cloudinary: ${key}`,
+              error,
+            );
+            return reject(error);
+          }
+          if (result) {
+            resolve(result.secure_url);
+          } else {
+            reject(new Error('Cloudinary upload returned no result'));
+          }
+        },
       );
-      throw error;
-    }
+
+      uploadStream.end(buffer);
+    });
   }
 
   async deleteFile(key: string): Promise<void> {
     try {
-      const command = new DeleteObjectCommand({
-        Bucket: this.bucket,
-        Key: key,
-      });
-
-      await this.s3Client.send(command);
+      await cloudinary.uploader.destroy(key);
     } catch (error) {
-      this.logger.error(`Failed to delete file from S3: ${key}`, error);
+      this.logger.error(`Failed to delete file from Cloudinary: ${key}`, error);
       throw error;
     }
   }

@@ -13,6 +13,8 @@ import { createAuth } from './auth.factory';
 import { AuthRepository } from './auth.repository';
 import { AuthService } from './auth.service';
 import { SessionsModule } from '../sessions/sessions.module';
+import { MediaService } from '../media/media.service';
+import { StorageService } from 'src/core/storage/storage.service';
 
 @Module({
   imports: [
@@ -33,7 +35,7 @@ import { SessionsModule } from '../sessions/sessions.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, AuthRepository],
+  providers: [AuthService, AuthRepository, MediaService, StorageService],
   exports: [AuthService],
 })
-export class AuthModule {}
+export class AuthModule { }

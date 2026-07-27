@@ -8,6 +8,7 @@ import {
   Put,
   Req,
   Res,
+  UploadedFile,
   UseGuards,
   UseInterceptors,
   UsePipes,
@@ -21,7 +22,9 @@ import type { Request, Response } from 'express';
 
 import { createApiResponse } from '../../shared/helpers/api-response.helper';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
+import { badRequestError } from '../../core/errors/domain-error';
 import { AuthInstance } from './auth.factory';
+import { mapUserResponse } from './auth.mapper';
 import { AuthService } from './auth.service';
 import type { GoogleSignInInput } from './schemas/google.schema';
 import { GoogleSignInInputSchema } from './schemas/google.schema';
@@ -258,6 +261,32 @@ export class AuthController {
       },
     }),
   )
+  async updateProfileImage(
+    @UploadedFile() file: Express.Multer.File,
+    @Session() session: UserSession<AuthInstance>,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<UpdateProfileResponse> {
+    if (!file) {
+      throw badRequestError('Profile image is required.');
+    }
+
+    const { user, cookies } = await this.authService.updateProfileImage(
+      mapUserResponse(session),
+      file,
+      req.headers,
+    );
+    this.appendCookies(res, cookies);
+
+    return UpdateProfileResponseSchema.parse(
+      createApiResponse({
+        statusCode: HttpStatus.OK,
+        message: 'Profile image updated successfully',
+        data: user,
+        path: req.url,
+      }),
+    );
+  }
 
   // ──────────────────────────────────────────────
   // Private helpers
