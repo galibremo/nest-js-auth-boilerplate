@@ -25,6 +25,13 @@ export const emailNotVerifiedError = (): DomainError =>
     HttpStatus.FORBIDDEN,
   );
 
+export const invalidMagicLinkError = (): DomainError =>
+  new DomainError(
+    'invalid_magic_link',
+    'This magic link is invalid, expired, or has already been used. Please request a new one.',
+    HttpStatus.UNAUTHORIZED,
+  );
+
 export const rateLimitExceededError = (retryAfter?: string): DomainError =>
   new DomainError(
     'rate_limit_exceeded',
@@ -68,6 +75,10 @@ export function throwBetterAuthError(error: unknown): never {
   }
 
   const providerCode = error.body?.code ?? getRedirectErrorCode(error.headers);
+
+  if (providerCode === 'INVALID_TOKEN' && error.status === 'FOUND') {
+    throw invalidMagicLinkError();
+  }
 
   switch (error.statusCode) {
     case 400:

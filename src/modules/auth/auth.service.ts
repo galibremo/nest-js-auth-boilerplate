@@ -23,6 +23,10 @@ import { BetterAuthLoginResponseSchema } from './schemas/login.schema';
 import type { LogoutData } from './schemas/logout.schema';
 import { LogoutDataSchema } from './schemas/logout.schema';
 import type {
+  MagicLinkSignInInput,
+  MagicLinkVerifyQuery,
+} from './schemas/magic-link.schema';
+import type {
   ChangePasswordInput,
   SetPasswordInput,
 } from './schemas/password.schema';
@@ -173,6 +177,61 @@ export class AuthService {
         user: synced.user,
         cookies: [...cookies, ...synced.cookies],
       };
+    } catch (error: unknown) {
+      throwBetterAuthError(error);
+    }
+  }
+
+  async magicLinkSignIn(
+    input: MagicLinkSignInInput,
+    requestHeaders: IncomingHttpHeaders,
+  ): Promise<boolean> {
+    try {
+      const metadata: Record<string, unknown> = {};
+      if (input.url) metadata.url = input.url;
+      if (input.callbackURL) metadata.callbackURL = input.callbackURL;
+      if (input.newUserCallbackURL) {
+        metadata.newUserCallbackURL = input.newUserCallbackURL;
+      }
+
+      const data = await this.betterAuth.api.signInMagicLink({
+        body: {
+          email: input.email,
+          ...(input.name ? { name: input.name } : {}),
+          ...(input.callbackURL ? { callbackURL: input.callbackURL } : {}),
+          ...(input.newUserCallbackURL
+            ? { newUserCallbackURL: input.newUserCallbackURL }
+            : {}),
+          ...(input.errorCallbackURL
+            ? { errorCallbackURL: input.errorCallbackURL }
+            : {}),
+          ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
+        },
+        headers: fromNodeHeaders(requestHeaders),
+      });
+
+      return data.status;
+    } catch (error: unknown) {
+      throwBetterAuthError(error);
+    }
+  }
+
+  async magicLinkVerify(
+    data: MagicLinkVerifyQuery,
+    requestHeaders: IncomingHttpHeaders,
+  ): Promise<LoginUserData> {
+    try {
+      const { response, headers } = await this.betterAuth.api.magicLinkVerify({
+        query: {
+          token: data.token,
+        },
+        headers: fromNodeHeaders(requestHeaders),
+        returnHeaders: true,
+      });
+
+      const user = await this.toLoginUser(response.user);
+
+      return { user, cookies: headers.getSetCookie() };
     } catch (error: unknown) {
       throwBetterAuthError(error);
     }

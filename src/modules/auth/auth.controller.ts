@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Post,
   Put,
+  Query,
   Req,
   Res,
   UploadedFile,
@@ -20,7 +21,10 @@ import {
 } from '@thallesp/nestjs-better-auth';
 import type { Request, Response } from 'express';
 
-import { createApiResponse } from '../../shared/helpers/api-response.helper';
+import {
+  createApiResponse,
+  type CreateApiResponseOptions,
+} from '../../shared/helpers/api-response.helper';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import { badRequestError } from '../../core/errors/domain-error';
 import { AuthInstance } from './auth.factory';
@@ -32,6 +36,14 @@ import type { LoginInput, LoginResponse } from './schemas/login.schema';
 import { LoginInputSchema, LoginResponseSchema } from './schemas/login.schema';
 import type { LogoutResponse } from './schemas/logout.schema';
 import { LogoutResponseSchema } from './schemas/logout.schema';
+import type {
+  MagicLinkSignInInput,
+  MagicLinkVerifyQuery,
+} from './schemas/magic-link.schema';
+import {
+  MagicLinkSignInInputSchema,
+  MagicLinkVerifyQuerySchema,
+} from './schemas/magic-link.schema';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type {
   ChangePasswordInput,
@@ -130,6 +142,44 @@ export class AuthController {
       createApiResponse({
         statusCode: HttpStatus.OK,
         message: 'Google login successful',
+        data: response.user,
+        path: req.url,
+      }),
+    );
+  }
+
+  @Post('magic-link')
+  @HttpCode(HttpStatus.OK)
+  @UsePipes(new ZodValidationPipe(MagicLinkSignInInputSchema))
+  async magicLinkSignIn(
+    @Body() input: MagicLinkSignInInput,
+    @Req() req: Request,
+  ): Promise<CreateApiResponseOptions<boolean>> {
+    const result = await this.authService.magicLinkSignIn(input, req.headers);
+
+    return createApiResponse({
+      statusCode: HttpStatus.OK,
+      message: 'Magic link sent successfully',
+      data: result,
+      path: req.url,
+    });
+  }
+
+  @Get('magic-link/verify')
+  @HttpCode(HttpStatus.OK)
+  async magicLinkVerify(
+    @Query(new ZodValidationPipe(MagicLinkVerifyQuerySchema))
+    query: MagicLinkVerifyQuery,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<LoginResponse> {
+    const response = await this.authService.magicLinkVerify(query, req.headers);
+    this.appendCookies(res, response.cookies);
+
+    return LoginResponseSchema.parse(
+      createApiResponse({
+        statusCode: HttpStatus.OK,
+        message: 'Magic link verification successful',
         data: response.user,
         path: req.url,
       }),

@@ -15,21 +15,28 @@ import { AuthService } from './auth.service';
 import { SessionsModule } from '../sessions/sessions.module';
 import { MediaService } from '../media/media.service';
 import { StorageService } from 'src/core/storage/storage.service';
+import { EmailProviderModule } from '../email-provider/email-provider.module';
+import { EmailDispatcherService } from '../email-provider/services/email-dispatcher.service';
 
 @Module({
   imports: [
     DatabaseModule,
     forwardRef(() => SessionsModule),
     BetterAuthModule.forRootAsync({
-      imports: [ConfigModule, DatabaseModule],
-      inject: [DRIZZLE_DATABASE_CONNECTION, ConfigService],
+      imports: [ConfigModule, DatabaseModule, EmailProviderModule],
+      inject: [
+        DRIZZLE_DATABASE_CONNECTION,
+        ConfigService,
+        EmailDispatcherService,
+      ],
       disableControllers: true,
       disableGlobalAuthGuard: true,
       useFactory: (
         database: NodePgDatabase<typeof schema>,
         configService: ConfigService<EnvType, true>,
+        emailDispatcher: EmailDispatcherService,
       ) => ({
-        auth: createAuth(database, configService),
+        auth: createAuth(database, configService, emailDispatcher),
         disableTrustedOriginsCors: true,
       }),
     }),
@@ -38,4 +45,4 @@ import { StorageService } from 'src/core/storage/storage.service';
   providers: [AuthService, AuthRepository, MediaService, StorageService],
   exports: [AuthService],
 })
-export class AuthModule { }
+export class AuthModule {}

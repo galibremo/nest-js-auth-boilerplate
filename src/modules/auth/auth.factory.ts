@@ -4,7 +4,9 @@ import { betterAuth } from 'better-auth';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import schema from '../../core/database/drizzle/drizzle.schema';
 import type { EnvType } from '../../core/validators/env';
-import { lastLoginMethod } from 'better-auth/plugins';
+import type { EmailDispatcherService } from '../email-provider/services/email-dispatcher.service';
+import { TEMPLATE_KEYS } from '../email-template/email-template.registry';
+import { lastLoginMethod, magicLink } from 'better-auth/plugins';
 
 export const BETTER_AUTH_BASE_PATH = '/internal/auth';
 
@@ -55,6 +57,7 @@ function resolveSessionLoginMethod(
 export function createAuth(
   database: NodePgDatabase<typeof schema>,
   configService: ConfigService<EnvType, true>,
+  emailDispatcher?: EmailDispatcherService,
 ) {
   const isProduction =
     configService.get('NODE_ENV', { infer: true }) === 'production';
@@ -62,6 +65,56 @@ export function createAuth(
     isProduction ||
     configService.get('COOKIE_SECURE', { infer: true }) === 'true';
   const cookieDomain = configService.get('COOKIE_DOMAIN', { infer: true });
+  const appUrl = configService
+    .get('ORIGIN_URL', { infer: true })
+    .split(',')[0]
+    .trim();
+
+  const sendMagicLinkEmail = ({
+    email,
+    url,
+    token,
+    metadata,
+  }: {
+    email: string;
+    url: string;
+    token: string;
+    metadata?: Record<string, unknown>;
+  }) => {
+    const customUrl = metadata?.url as string | undefined;
+    const callbackURL = metadata?.callbackURL as string | undefined;
+    const newUserCallbackURL = metadata?.newUserCallbackURL as
+      string | undefined;
+    let verificationUrl = customUrl
+      ? `${customUrl.replace(/\/+$/, '')}/auth/magic-link?token=${token}`
+      : url;
+
+    if (callbackURL) {
+      const separator = verificationUrl.includes('?') ? '&' : '?';
+      verificationUrl = `${verificationUrl}${separator}callbackURL=${encodeURIComponent(callbackURL)}`;
+    }
+
+    if (newUserCallbackURL) {
+      const separator = verificationUrl.includes('?') ? '&' : '?';
+      verificationUrl = `${verificationUrl}${separator}newUserCallbackURL=${encodeURIComponent(newUserCallbackURL)}`;
+    }
+
+    if (!emailDispatcher) {
+      console.log(verificationUrl);
+      return Promise.resolve();
+    }
+
+    return emailDispatcher.sendFromTemplate({
+      templateKey: TEMPLATE_KEYS.AUTH_MAGIC_LINK,
+      to: [{ email }],
+      params: {
+        verificationUrl,
+        redirectUrl: appUrl,
+        expiresInMinutes: 15,
+        year: new Date().getFullYear(),
+      },
+    });
+  };
 
   return betterAuth({
     appName: configService.get('APP_NAME', { infer: true }),
@@ -80,6 +133,13 @@ export function createAuth(
     plugins: [
       lastLoginMethod({
         storeInDatabase: true,
+      }),
+      magicLink({
+        sendMagicLink: (data) => {
+          sendMagicLinkEmail(data).catch((error) =>
+            console.error('[AuthEmail] Failed to send magic link:', error),
+          );
+        },
       }),
     ],
     emailAndPassword: {
