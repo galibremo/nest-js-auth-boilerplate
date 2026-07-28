@@ -6,7 +6,6 @@ import {
   validateNewPassword,
   validatePassword,
 } from '../../../core/validators/common.schema';
-import { LoginUserSchema } from './login.schema';
 
 export const ChangePasswordInputSchema = z.strictObject({
   currentPassword: validatePassword,
@@ -25,8 +24,9 @@ export const SetPasswordResponseSchema = createApiResponseSchema(
   validateBoolean('Password set status'),
 );
 
-export const ChangePasswordResponseSchema =
-  createApiResponseSchema(LoginUserSchema);
+export const ChangePasswordResponseSchema = createApiResponseSchema(
+  validateBoolean('Password change status'),
+);
 
 export type ChangePasswordInput = z.infer<typeof ChangePasswordInputSchema>;
 export type SetPasswordInput = z.infer<typeof SetPasswordInputSchema>;

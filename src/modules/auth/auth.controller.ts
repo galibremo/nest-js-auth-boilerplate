@@ -161,15 +161,14 @@ export class AuthController {
 
   @Get('session')
   @UseGuards(AuthGuard)
-  getSession(
-    @Session() session: UserSession<AuthInstance>,
-    @Req() req: Request,
-  ): LoginResponse {
+  async getSession(@Req() req: Request): Promise<LoginResponse> {
+    const user = await this.authService.getSession(req.headers);
+
     return LoginResponseSchema.parse(
       createApiResponse({
         statusCode: HttpStatus.OK,
         message: 'Session retrieved successfully',
-        data: session.user,
+        data: user,
         path: req.url,
       }),
     );
@@ -203,13 +202,16 @@ export class AuthController {
     @Body() input: ChangePasswordInput,
     @Req() req: Request,
   ): Promise<ChangePasswordResponse> {
-    const user = await this.authService.changeUserPassword(input, req.headers);
+    const status = await this.authService.changeUserPassword(
+      input,
+      req.headers,
+    );
 
     return ChangePasswordResponseSchema.parse(
       createApiResponse({
         statusCode: HttpStatus.OK,
         message: 'Password changed successfully',
-        data: user,
+        data: status,
         path: req.url,
       }),
     );

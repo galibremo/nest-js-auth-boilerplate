@@ -159,10 +159,15 @@ export class AuthService {
       });
 
       const cookies = headers.getSetCookie();
-      const { user: parsedUser } = BetterAuthLoginResponseSchema.parse(response);
+      const { user: parsedUser } =
+        BetterAuthLoginResponseSchema.parse(response);
 
       const user = await this.toLoginUser(parsedUser);
-      const synced = await this.syncExternalProfileImage(user, requestHeaders, cookies);
+      const synced = await this.syncExternalProfileImage(
+        user,
+        requestHeaders,
+        cookies,
+      );
 
       return {
         user: synced.user,
@@ -192,16 +197,14 @@ export class AuthService {
   async changeUserPassword(
     input: ChangePasswordInput,
     requestHeaders: IncomingHttpHeaders,
-  ): Promise<LoginUser> {
+  ): Promise<boolean> {
     try {
-      const data = await this.betterAuth.api.changePassword({
+      await this.betterAuth.api.changePassword({
         body: input,
         headers: fromNodeHeaders(requestHeaders),
       });
 
-      const { user } = BetterAuthLoginResponseSchema.parse(data);
-
-      return user;
+      return true;
     } catch (error: unknown) {
       throwBetterAuthError(error);
     }
@@ -527,11 +530,11 @@ export class AuthService {
     if (!imageUrl) {
       return null;
     }
-    
+
     // For Cloudinary, public URLs often look like:
     // https://res.cloudinary.com/<cloud_name>/image/upload/v<version>/profiles/<uuid>.webp
     // Or without version.
-    
+
     const match = imageUrl.match(/(profiles\/[^/?#]+)/);
     return match?.[1] ?? null;
   }
